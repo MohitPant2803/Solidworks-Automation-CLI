@@ -1,0 +1,24 @@
+# Configuration files (contains API keys)
+.env
+config.json
+key_store.py
+
+# SQLite Database
+*.db
+
+# Local logs and backups
+logs/
+projects/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# PyInstaller build outputs
+build/
+dist/
+*.spec
+SolidWorksAI.exe
