@@ -94,7 +94,7 @@ def create_rectangle(
         logger.warning(f"Could not fully add dimensions to sketch segments: {e}")
 
     # Get active sketch name
-    active_sketch = model.GetActiveSketch2()
+    active_sketch = model.ActiveSketch
     sketch_name = active_sketch.Name if active_sketch else "Sketch1"
     
     close_sketch(model, True)
@@ -132,7 +132,7 @@ def create_circle(
     except Exception as e:
         logger.warning(f"Could not dimension circle sketch: {e}")
 
-    active_sketch = model.GetActiveSketch2()
+    active_sketch = model.ActiveSketch
     sketch_name = active_sketch.Name if active_sketch else "Sketch1"
     
     close_sketch(model, True)
