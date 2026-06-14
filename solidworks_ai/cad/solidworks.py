@@ -84,11 +84,18 @@ class SolidWorksConnection:
         warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         
         # OpenDoc6 (FileName, Type, Options, ConfigurationName, Errors, Warnings)
-        model = app.OpenDoc6(str(path), file_type, 1, "", errors, warnings)
+        try:
+            model = app.OpenDoc6(str(path), int(file_type), int(1), str(""), errors, warnings)
+        except Exception as e:
+            raise SolidWorksError(f"OpenDoc6 COM call failed for '{path}': {e}")
         if not model:
             raise SolidWorksError(f"Failed to open document: {path}. COM Error Code: {errors.value}")
         
-        app.ActivateDoc3(model.GetTitle(), True, 2, errors)
+        try:
+            errors2 = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
+            app.ActivateDoc3(str(model.GetTitle()), True, int(2), errors2)
+        except Exception as e:
+            logger.warning(f"ActivateDoc3 failed (non-critical): {e}")
         logger.info(f"Opened document: {path}")
         return model
 
@@ -120,7 +127,10 @@ class SolidWorksConnection:
         errors = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         
-        success = model.SaveAs4(str(path), 0, SWConstants.swSaveAsOptions_Silent, errors, warnings)
+        try:
+            success = model.SaveAs4(str(path), int(0), int(SWConstants.swSaveAsOptions_Silent), errors, warnings)
+        except Exception as e:
+            raise SolidWorksError(f"SaveAs4 COM call failed for '{path}': {e}")
         if not success:
             raise SolidWorksError(f"Failed to save document to {path}. Error code: {errors.value}")
         logger.info(f"Saved document successfully to {path}")
@@ -154,7 +164,10 @@ class SolidWorksConnection:
         warnings = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         
         # SaveAs4 handles export based on file extension automatically
-        success = model.SaveAs4(str(path), 0, SWConstants.swSaveAsOptions_Silent, errors, warnings)
+        try:
+            success = model.SaveAs4(str(path), int(0), int(SWConstants.swSaveAsOptions_Silent), errors, warnings)
+        except Exception as e:
+            raise SolidWorksError(f"SaveAs4 (export {format_type}) COM call failed for '{path}': {e}")
         if not success:
             raise SolidWorksError(f"Failed to export model to {format_type} at {path}. Error: {errors.value}")
         logger.info(f"Exported model to {format_type} at {path}")

@@ -2,6 +2,8 @@ import os
 import logging
 from typing import Any, List, Optional
 from pathlib import Path
+import win32com.client
+import pythoncom
 from solidworks_ai.cad.solidworks import SolidWorksError
 
 logger = logging.getLogger(__name__)
@@ -27,27 +29,27 @@ def create_drawing(sw: Any) -> Any:
     # Try different ways to instantiate a drawing document
     try:
         # Paper size: 2 = swDwgPaperAsize
-        drawing_doc = sw.NewDocument(template_path, 2, 0.2794, 0.2159)
+        drawing_doc = sw.NewDocument(str(template_path), int(2), float(0.2794), float(0.2159))
     except Exception as e:
         logger.warning(f"Failed to create drawing doc with template: {e}. Trying standard empty template...")
     
     if not drawing_doc:
         try:
-            drawing_doc = sw.NewDocument("", 2, 0.2794, 0.2159)
+            drawing_doc = sw.NewDocument(str(""), int(2), float(0.2794), float(0.2159))
         except Exception as e:
             logger.warning(f"Failed with empty template name: {e}. Trying NewDrawing2...")
     
     if not drawing_doc:
         try:
             # NewDrawing2(PaperSize, TemplateName, Width, Height)
-            drawing_doc = sw.NewDrawing2(2, "", 0.2794, 0.2159)
+            drawing_doc = sw.NewDrawing2(int(2), str(""), float(0.2794), float(0.2159))
         except Exception as e:
             logger.warning(f"Failed to create new drawing document via NewDrawing2: {e}")
             
     if not drawing_doc:
         # Final fallback: NewDocument("", 0, 0, 0)
         try:
-            drawing_doc = sw.NewDocument("", 0, 0, 0)
+            drawing_doc = sw.NewDocument(str(""), int(0), float(0), float(0))
         except Exception as e:
             raise SolidWorksError(f"Failed to create drawing: {e}")
 
@@ -83,13 +85,17 @@ def create_drawing_views(drawing_doc: Any, model_path: str) -> List[str]:
         y = view_info["y"]
         logger.info(f"Creating view '{view_name}' at X={x}m, Y={y}m for model '{resolved_path}'")
         
-        view_obj = drawing_doc.CreateDrawViewFromModelView3(
-            resolved_path,
-            view_name,
-            x,
-            y,
-            0.0
-        )
+        try:
+            view_obj = drawing_doc.CreateDrawViewFromModelView3(
+                str(resolved_path),
+                str(view_name),
+                float(x),
+                float(y),
+                float(0.0)
+            )
+        except Exception as e:
+            logger.warning(f"CreateDrawViewFromModelView3 COM call failed for '{view_name}': {e}")
+            view_obj = None
         if not view_obj:
             logger.warning(f"Failed to create view '{view_name}'.")
         else:

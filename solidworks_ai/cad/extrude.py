@@ -1,9 +1,31 @@
 import logging
 from typing import Any
+import win32com.client
+import pythoncom
 from solidworks_ai.cad.solidworks import SolidWorksError
 from solidworks_ai.config import SWConstants
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Helpers for COM VARIANT wrapping
+# ---------------------------------------------------------------------------
+def _bool(val: bool):
+    """Wrap a Python bool as a COM VARIANT_BOOL."""
+    return win32com.client.VARIANT(pythoncom.VT_BOOL, bool(val))
+
+def _long(val: int):
+    """Wrap a Python int as a COM VT_I4 (Long)."""
+    return win32com.client.VARIANT(pythoncom.VT_I4, int(val))
+
+def _double(val: float):
+    """Wrap a Python float as a COM VT_R8 (Double)."""
+    return win32com.client.VARIANT(pythoncom.VT_R8, float(val))
+
+def _dispatch_none():
+    """Return a COM VT_DISPATCH variant set to None (null pointer)."""
+    return win32com.client.VARIANT(pythoncom.VT_DISPATCH, None)
+
 
 def boss_extrude(
     model: Any,
@@ -17,8 +39,30 @@ def boss_extrude(
     """
     # 1. Select the sketch
     # SelectByID2(Name, Type, X, Y, Z, Append, Mark, Callout, SelectOption)
-    model.ClearSelection2(True)
-    success = model.Extension.SelectByID2(sketch_name, "SKETCH", 0, 0, 0, False, 0, None, 0)
+    try:
+        model.ClearSelection2(True)
+    except Exception as e:
+        raise SolidWorksError(f"ClearSelection2 failed before boss_extrude: {e}")
+
+    null_callout = _dispatch_none()
+    try:
+        success = model.Extension.SelectByID2(
+            sketch_name,       # Name
+            "SKETCH",          # Type
+            _double(0.0),      # X
+            _double(0.0),      # Y
+            _double(0.0),      # Z
+            _bool(False),      # Append
+            _long(0),          # Mark
+            null_callout,      # Callout
+            _long(0)           # SelectOption
+        )
+    except Exception as e:
+        raise SolidWorksError(
+            f"Extension.SelectByID2 failed for sketch '{sketch_name}' "
+            f"in boss_extrude: {e}"
+        )
+
     if not success:
         raise SolidWorksError(f"Failed to select sketch '{sketch_name}' for extrusion.")
 
@@ -36,31 +80,37 @@ def boss_extrude(
     # Merge (Merge results), UseFeatScope, UseAutoSelect, T0 (StartCondition), 
     # StartOffset, FlipStartOffset
     feat_mgr = model.FeatureManager
-    feat = feat_mgr.FeatureExtrusion3(
-        True,                                # Sd (Single direction)
-        False,                               # Flip (draft/cut side)
-        flip,                                # Dir (True to reverse direction)
-        SWConstants.swEndCondBlind,          # T1
-        SWConstants.swEndCondBlind,          # T2
-        depth,                               # D1
-        0.0,                                 # D2
-        False,                               # Dchk1 (Draft)
-        False,                               # Dchk2 (Draft)
-        False,                               # Ddir1
-        False,                               # Ddir2
-        0.0,                                 # Dang1
-        0.0,                                 # Dang2
-        False,                               # OffsetReverse1
-        False,                               # OffsetReverse2
-        False,                               # TranslateSurface1
-        False,                               # TranslateSurface2
-        True,                                # Merge
-        True,                                # UseFeatScope
-        True,                                # UseAutoSelect
-        0,                                   # T0 (StartCondition = Sketch Plane)
-        0.0,                                 # StartOffset
-        False                                # FlipStartOffset
-    )
+    try:
+        feat = feat_mgr.FeatureExtrusion3(
+            _bool(True),                                 # Sd (Single direction)
+            _bool(False),                                # Flip (draft/cut side)
+            _bool(flip),                                 # Dir (True to reverse direction)
+            _long(SWConstants.swEndCondBlind),            # T1
+            _long(SWConstants.swEndCondBlind),            # T2
+            _double(depth),                              # D1
+            _double(0.0),                                # D2
+            _bool(False),                                # Dchk1 (Draft)
+            _bool(False),                                # Dchk2 (Draft)
+            _bool(False),                                # Ddir1
+            _bool(False),                                # Ddir2
+            _double(0.0),                                # Dang1
+            _double(0.0),                                # Dang2
+            _bool(False),                                # OffsetReverse1
+            _bool(False),                                # OffsetReverse2
+            _bool(False),                                # TranslateSurface1
+            _bool(False),                                # TranslateSurface2
+            _bool(True),                                 # Merge
+            _bool(True),                                 # UseFeatScope
+            _bool(True),                                 # UseAutoSelect
+            _long(0),                                    # T0 (StartCondition = Sketch Plane)
+            _double(0.0),                                # StartOffset
+            _bool(False)                                 # FlipStartOffset
+        )
+    except Exception as e:
+        raise SolidWorksError(
+            f"FeatureManager.FeatureExtrusion3 failed for sketch '{sketch_name}' "
+            f"(depth={depth_mm}mm, flip={flip}): {e}"
+        )
 
     if not feat:
         raise SolidWorksError(f"FeatureExtrusion3 returned null for sketch '{sketch_name}'. Check geometry.")
@@ -79,8 +129,30 @@ def cut_extrude(
     If depth_mm is -1, it performs a through-all cut.
     Returns the cut feature name.
     """
-    model.ClearSelection2(True)
-    success = model.Extension.SelectByID2(sketch_name, "SKETCH", 0, 0, 0, False, 0, None, 0)
+    try:
+        model.ClearSelection2(True)
+    except Exception as e:
+        raise SolidWorksError(f"ClearSelection2 failed before cut_extrude: {e}")
+
+    null_callout = _dispatch_none()
+    try:
+        success = model.Extension.SelectByID2(
+            sketch_name,       # Name
+            "SKETCH",          # Type
+            _double(0.0),      # X
+            _double(0.0),      # Y
+            _double(0.0),      # Z
+            _bool(False),      # Append
+            _long(0),          # Mark
+            null_callout,      # Callout
+            _long(0)           # SelectOption
+        )
+    except Exception as e:
+        raise SolidWorksError(
+            f"Extension.SelectByID2 failed for sketch '{sketch_name}' "
+            f"in cut_extrude: {e}"
+        )
+
     if not success:
         raise SolidWorksError(f"Failed to select sketch '{sketch_name}' for cut extrusion.")
 
@@ -97,35 +169,41 @@ def cut_extrude(
     # AssemblyFeatureScope, ConPropagate, ModelPropagate, PropagateToParts, T0 (StartCondition),
     # StartOffset, FlipStartOffset
     feat_mgr = model.FeatureManager
-    feat = feat_mgr.FeatureCut4(
-        True,                                # Sd (Single direction)
-        False,                               # Flip
-        flip_dir,                            # Dir
-        end_condition,                       # T1
-        SWConstants.swEndCondBlind,          # T2
-        depth,                               # D1
-        0.0,                                 # D2
-        False,                               # Dchk1 (Draft)
-        False,                               # Dchk2 (Draft)
-        False,                               # Ddir1
-        False,                               # Ddir2
-        0.0,                                 # Dang1
-        0.0,                                 # Dang2
-        False,                               # OffsetReverse1
-        False,                               # OffsetReverse2
-        False,                               # TranslateSurface1
-        False,                               # TranslateSurface2
-        False,                               # NormalCut
-        True,                                # UseFeatScope
-        True,                                # UseAutoSelect
-        True,                                # AssemblyFeatureScope
-        True,                                # ConPropagate
-        True,                                # ModelPropagate
-        True,                                # PropagateToParts
-        0,                                   # T0 (StartCondition = Sketch Plane)
-        0.0,                                 # StartOffset
-        False                                # FlipStartOffset
-    )
+    try:
+        feat = feat_mgr.FeatureCut4(
+            _bool(True),                                 # Sd (Single direction)
+            _bool(False),                                # Flip
+            _bool(flip_dir),                             # Dir
+            _long(end_condition),                        # T1
+            _long(SWConstants.swEndCondBlind),            # T2
+            _double(depth),                              # D1
+            _double(0.0),                                # D2
+            _bool(False),                                # Dchk1 (Draft)
+            _bool(False),                                # Dchk2 (Draft)
+            _bool(False),                                # Ddir1
+            _bool(False),                                # Ddir2
+            _double(0.0),                                # Dang1
+            _double(0.0),                                # Dang2
+            _bool(False),                                # OffsetReverse1
+            _bool(False),                                # OffsetReverse2
+            _bool(False),                                # TranslateSurface1
+            _bool(False),                                # TranslateSurface2
+            _bool(False),                                # NormalCut
+            _bool(True),                                 # UseFeatScope
+            _bool(True),                                 # UseAutoSelect
+            _bool(True),                                 # AssemblyFeatureScope
+            _bool(True),                                 # ConPropagate
+            _bool(True),                                 # ModelPropagate
+            _bool(True),                                 # PropagateToParts
+            _long(0),                                    # T0 (StartCondition = Sketch Plane)
+            _double(0.0),                                # StartOffset
+            _bool(False)                                 # FlipStartOffset
+        )
+    except Exception as e:
+        raise SolidWorksError(
+            f"FeatureManager.FeatureCut4 failed for sketch '{sketch_name}' "
+            f"(depth={depth_mm}mm, flip_dir={flip_dir}): {e}"
+        )
 
     if not feat:
         raise SolidWorksError(f"FeatureCut4 returned null for sketch '{sketch_name}'. Check cut geometry.")

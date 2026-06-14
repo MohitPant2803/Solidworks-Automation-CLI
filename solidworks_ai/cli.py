@@ -428,7 +428,10 @@ class SolidWorksAICopilotCLI:
             console.print(f"\n[bold red]Validation Error:[/bold red] {val_err}\n")
             self.state = StateMachine.PLANNING
         except Exception as e:
+            import traceback
             console.print(f"\n[bold red]Execution Error:[/bold red] {e}\n")
+            tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+            console.print("[dim]" + "".join(tb_lines) + "[/dim]")
             self.state = StateMachine.PLANNING
 
     def handle_undo(self) -> None:

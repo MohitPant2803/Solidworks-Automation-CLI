@@ -1,5 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
+import win32com.client
+import pythoncom
 from sqlalchemy.orm import Session
 
 from solidworks_ai.cad.solidworks import SolidWorksConnection, SolidWorksError
@@ -118,7 +120,8 @@ class CommandExecutor:
                             raise SolidWorksError(f"Native feature '{sw_feat_name}' has no faces to sketch on.")
                         
                         # Select the first face
-                        faces[0].Select4(False, None)
+                        null_sel = win32com.client.VARIANT(pythoncom.VT_DISPATCH, None)
+                        faces[0].Select4(False, null_sel)
                         # We use the selected face as the plane_or_face_name for create_hole
                         # Passing empty string or letting create_hole know that face is already selected
                         # Let's modify select_plane_or_face to accept the selection or handle empty string
@@ -348,7 +351,7 @@ class CommandExecutor:
             # Revert CAD and DB states
             if cp_id > 0:
                 self.rollback_handler.rollback_to_checkpoint(project_id, cp_id)
-            raise SolidWorksError(f"Execution failed at step '{tool}': {e}. Model rolled back to pre-execution state.")
+            raise SolidWorksError(f"Execution failed at step '{tool}': {e}. Model rolled back to pre-execution state.") from e
 
     def _resolve_dimension_param(
         self,

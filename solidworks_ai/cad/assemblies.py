@@ -1,5 +1,7 @@
 import logging
 from typing import Any, Optional
+import win32com.client
+import pythoncom
 from solidworks_ai.cad.solidworks import SolidWorksError
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,13 @@ def add_component(
     # AddComponent5(CompName, ConfigOption, ConfigName, DispStateOption, DispStateName, X, Y, Z)
     # ConfigOption: 0 = uses default configuration
     assembly = model
-    comp = assembly.AddComponent5(component_path, 0, "", 0, "", x, y, z)
+    try:
+        comp = assembly.AddComponent5(
+            str(component_path), int(0), str(""), int(0), str(""),
+            float(x), float(y), float(z)
+        )
+    except Exception as e:
+        raise SolidWorksError(f"AddComponent5 COM call failed for '{component_path}': {e}")
     if not comp:
         raise SolidWorksError(f"Failed to add component '{component_path}' to assembly.")
 
@@ -116,20 +124,31 @@ def add_assembly_mate(
         raise SolidWorksError(f"Could not find matching geometry (faces) to create '{mate_type}' mate between '{comp1_name}' and '{comp2_name}'.")
 
     # 4. Select both faces (using Select4 to append)
-    ent1.Select4(True, None)
-    ent2.Select4(True, None)
+    null_sel = win32com.client.VARIANT(pythoncom.VT_DISPATCH, None)
+    try:
+        ent1.Select4(True, null_sel)
+        ent2.Select4(True, null_sel)
+    except Exception as e:
+        raise SolidWorksError(f"Select4 failed while selecting mate faces: {e}")
 
     # 5. Call AddMate5
     # AddMate5(MateType, Align, Flip, Distance, Angle, WidthMax, WidthMin, AddMicroRoute, ...
     # Align: 0 = Aligned, 1 = Anti-Aligned, 2 = Closest
-    align_val = 0 if align == 1 else 1
+    align_val = int(0) if align == 1 else int(1)
     
-    errors = 0
+    errors = win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     # AddMate5 returns Mate2 object on success
-    mate = assembly.AddMate5(sw_mate_type, align_val, False, 0.0, 0.0, 0.0, 0.0, False, False, 0, errors)
+    try:
+        mate = assembly.AddMate5(
+            int(sw_mate_type), int(align_val), False,
+            float(0.0), float(0.0), float(0.0), float(0.0),
+            False, False, int(0), errors
+        )
+    except Exception as e:
+        raise SolidWorksError(f"AddMate5 COM call failed for '{mate_type}' mate: {e}")
     
     if not mate:
-        raise SolidWorksError(f"AddMate5 failed to create '{mate_type}' mate. COM error code: {errors}")
+        raise SolidWorksError(f"AddMate5 failed to create '{mate_type}' mate. COM error code: {errors.value}")
 
     model.EditRebuild3()
     logger.info(f"Successfully created '{mate_type}' mate: {mate.Name}")
