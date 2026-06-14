@@ -95,7 +95,11 @@ def create_rectangle(
 
     # Get active sketch name
     active_sketch = model.ActiveSketch
-    sketch_name = active_sketch.Name if active_sketch else "Sketch1"
+    if active_sketch:
+        sketch_feat = active_sketch.GetFeature()
+        sketch_name = sketch_feat.Name if sketch_feat else "Sketch1"
+    else:
+        sketch_name = "Sketch1"
     
     close_sketch(model, True)
     return sketch_name
@@ -133,7 +137,11 @@ def create_circle(
         logger.warning(f"Could not dimension circle sketch: {e}")
 
     active_sketch = model.ActiveSketch
-    sketch_name = active_sketch.Name if active_sketch else "Sketch1"
+    if active_sketch:
+        sketch_feat = active_sketch.GetFeature()
+        sketch_name = sketch_feat.Name if sketch_feat else "Sketch1"
+    else:
+        sketch_name = "Sketch1"
     
     close_sketch(model, True)
     return sketch_name
